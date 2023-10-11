@@ -1,53 +1,58 @@
 ---
 title: "p8105_hw3_qra2000"
 author: Quinn Anderson
-output: html_document
+output: github_document
 date: "2023-10-09"
 ---
 
 ```{r setup, include=FALSE}
+library(tidyverse)
+library(ggridges)
+library(patchwork)
+
+library(p8105.datasets)
+
 knitr::opts_chunk$set(
-  fig.width = 6,
-  fig.asp = .6,
-  out.width = "90%")
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
 
 options(
   ggplot2.continuous.colour = "viridis",
   ggplot2.continuous.fill = "viridis"
 )
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
 ```
 
 ## Problem 1
 
+### Read in data
+
 ```{r read in data}
-devtools::install_github("p8105/p8105.datasets")
-force=TRUE
-
-library(tidyverse)
-library(p8105.datasets)
-
 data("instacart")
+
+instacart = 
+  instacart |> 
+  as_tibble()
 ```
 
-The instacart dataset is an anonymized dataset that includes data from more than 200,000 Instacart users. The dataset has `r nrow(instacart)` observations of `r ncol(instacart)` variables, where each row is a product that Instacart users can order. Key variables in this data include identifiers (`order_id`, `product_id`, `user_id`, `aisle_id`, and `department_id`) and information about each product in each order (`add_to_cart_order`, `reordered`, `order_number`, `order_dow`, `order_hour_of_day`, and `days_since_prior_order`.) For example, user id 112108 ordered Bulgarian Yogurt (product id 49302) at 10am (`order_hour_of_day`) on Wednesday (4th day of the week, `order_dow`), which user ID 112108 has ordered at least once prior. This item is one out of 8 (`add_to_cart_order`) included in `order_id` . 
+### Dataset descriptions and questions
 
-There are 134 aisles in the instacart dataset. The "fresh vegetables" aisle has the most frequent orders, at 150,609 times ordered from.  
+The instacart dataset is an anonymized dataset that includes data from more than 200,000 Instacart users. The dataset has `r nrow(instacart)` observations of `r ncol(instacart)` variables, where each row is a product that Instacart users can order. Variables include identifiers for user, order, and product; the order in which each product was added to the cart. There are several order-level variables, describing the day and time of the order, and number of days since prior order. There are also several item-specific variables, describing the product name (e.g. Yogurt, Avocado), department (e.g. dairy and eggs, produce), and aisle (e.g. yogurt, fresh fruits), and whether the item has been ordered by this user in the past. In total, there are `r instacart |> select(product_id) |> distinct() |> count()` products found in `r instacart |> select(user_id, order_id) |> distinct() |> count()` orders from `r instacart |> select(user_id) |> distinct() |> count()` distinct users.
 
-```{r number of aisles in dataset}
-instacart |> 
-  count(aisle) |> 
-  arrange(desc(n))
-```
-
-OR?
+The table below summarizes the number of items ordered from the aisles. In total, there are 134 aisles, with fresh vegetables and fresh fruits holding the most items ordered by far. 
 
 ```{r}
 instacart |> 
-  group_by(aisle) |> 
-  summarize(n_obs = n()) |> 
-  mutate(
-    aisle_rank = min_rank((desc(aisle)))
-  )
+  count(aisle) |> 
+  arrange(desc(n))
 ```
 
 The plot below shows the number of items ordered in each aisle, limited to aisles with more than 10,000 items ordered in this dataset. 
@@ -68,7 +73,7 @@ instacart |>
   theme(axis.text.x = element_text(angle = 60, hjust = 1))
 ```
 
-The table below shows the 3 most popular items in each of the aisles: "baking ingredients", "dog food care", and "packaged vegetable fruits", and the number of times each item is ordered. 
+The table below shows the 3 most popular items in each of the aisles: `baking ingredients`, `dog food care`, and `packaged vegetable fruits`, and the number of times each item is ordered. 
 
 ```{r}
 instacart |> 
@@ -85,7 +90,7 @@ instacart |>
   knitr::kable()
 ```
 
-The table below shows the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week. 
+The table below shows the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week. The table has been formatted for human readers. Pink lady apples are typically ordered earlier in the day than Coffee Ice Cream (~11am) with the exception of day 5. 
 
 ```{r}
 instacart |> 
@@ -98,8 +103,9 @@ instacart |>
     names_from = order_dow,
     values_from = mean_hour
   ) |> 
-  knitr::kable()
+  knitr::kable(digits = 2)
 ```
+
 
 ## Problem 2
 
