@@ -2,7 +2,7 @@
 title: "p8105_hw3_qra2000"
 author: Quinn Anderson
 output: github_document
-date: "2023-10-09"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
 ---
 
 ```{r setup, include=FALSE}
@@ -17,15 +17,13 @@ knitr::opts_chunk$set(
 	warning = FALSE,
 	fig.width = 8, 
   fig.height = 6,
-  out.width = "90%"
-)
+  out.width = "90%")
 
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 
 options(
   ggplot2.continuous.colour = "viridis",
-  ggplot2.continuous.fill = "viridis"
-)
+  ggplot2.continuous.fill = "viridis")
 
 scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
@@ -35,7 +33,7 @@ scale_fill_discrete = scale_fill_viridis_d
 
 ### Read in data
 
-```{r read in data}
+```{r}
 data("instacart")
 
 instacart = 
@@ -57,13 +55,11 @@ instacart |>
 
 The plot below shows the number of items ordered in each aisle, limited to aisles with more than 10,000 items ordered in this dataset. 
 
-```{r plot items ordered in each aisle}
+```{r}
 instacart |>  
   count(aisle) |> 
   filter(n > 10000) |> 
-  mutate(
-    aisle = factor(aisle),
-    aisle = fct_reorder(aisle, n)) |> 
+  mutate(aisle = fct_reorder(aisle, n)) |> 
   ggplot(aes(x = aisle, y = n)) + 
   geom_point() +
   labs(
@@ -78,13 +74,10 @@ The table below shows the 3 most popular items in each of the aisles: `baking in
 ```{r}
 instacart |> 
   filter(
-    aisle %in% c("baking ingredients", "dog food care", "packaged vegetables fruits")
-  ) |> 
+    aisle %in% c("baking ingredients", "dog food care", "packaged vegetables fruits")) |>
   group_by(aisle) |> 
   count(product_name) |> 
-  mutate(
-    rank = min_rank((desc(n)))
-  ) |> 
+  mutate(rank = min_rank((desc(n)))) |> 
   filter(rank < 4) |> 
   arrange(desc(n)) |> 
   knitr::kable()
@@ -95,23 +88,110 @@ The table below shows the mean hour of the day at which Pink Lady Apples and Cof
 ```{r}
 instacart |> 
   filter(
-    product_name %in% c("Pink Lady Apples", "Coffee Ice Cream")
-  ) |> 
+    product_name %in% c("Pink Lady Apples", "Coffee Ice Cream")) |> 
   group_by(product_name, order_dow) |> 
   summarize(mean_hour = mean(order_hour_of_day)) |> 
   pivot_wider(
     names_from = order_dow,
-    values_from = mean_hour
-  ) |> 
+    values_from = mean_hour) |> 
   knitr::kable(digits = 2)
 ```
 
-
 ## Problem 2
+
+### Read in data
 
 ```{r}
 data("brfss_smart2010")
+
+brfss_smart2010 = 
+  brfss_smart2010 |> 
+  as_tibble()
 ```
+
+### Data cleaning
+
+```{r}
+brfss_smart2010_clean = brfss_smart2010 |> 
+  janitor::clean_names() |>
+  filter(topic == "Overall Health",
+         response %in% c("Excellent", "Very good", "Good", "Fair", "Poor")) |> 
+  mutate(response = factor(response, levels = c("Poor", "Fair", "Good", "Very good", "Excellent"), ordered = TRUE)) |>
+  rename("state" = "locationabbr","county" = "locationdesc")
+
+view(brfss_smart2010_clean)
+```
+
+### Data discussion
+
+In 2002, 6 states were observed at 7 or more locations: PA, NJ, NC, MA, FL, and CT.
+
+```{r}
+states_2002 =
+  brfss_smart2010_clean |> 
+  filter(year == "2002") |> 
+  group_by(year, state) |> 
+  summarize(nlocation = n_distinct(geo_location)) |> 
+  filter(nlocation >= 7) |> 
+  knitr::kable()
+
+states_2002
+```
+
+In 2010, 14 states were observed at 7 or more locations: CA, CO, FL, MA, MD, NC, NE, NJ, NY, OH, PA, SC, TX, WA. 
+
+```{r}
+states_2010 = 
+  brfss_smart2010_clean |> 
+  filter(year == "2010") |> 
+  group_by(year, state) |> 
+  summarize(nloc = n_distinct(geo_location)) |> 
+  filter(nloc >= 7) |> 
+  knitr::kable()
+
+states_2010
+```
+
+Construct a dataset that is limited to `Excellent` responses, and contains, `year`, `state`, and a variable that averages the `data_value` across locations within a state. Make a "spaghetti” plot of this average value over time within a state (that is, make a plot showing a line for each state across years – the geom_line geometry and group aesthetic will help).
+
+```{r}
+bfrss_smart2010_excellent = brfss_smart2010_clean |> 
+  filter(response == "Excellent") |> 
+  select(year, state, county, data_value) |> 
+  group_by(year, state) |> 
+  summarize(mean_dv = mean(data_value))
+
+bfrss_smart2010_excellent |>
+  ggplot(aes(x = year, y = mean_dv, group = state)) + 
+  geom_line(aes(color = state)) + 
+  labs(
+    title = "Average 'Excellent' Responses over Time per State",
+    x = "Time (years)",
+    y = "Mean (percentage)",
+    color = "States", 
+    caption = "Data from bfrss_smart_2010 dataset") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Make a two-panel plot showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
+
+```{r}
+brfss_smart2010_clean |> 
+   mutate(response = forcats::fct_relevel(response, c("Poor", "Fair", "Excellent", "Good", "Very good"))) |> 
+  filter(year %in% c("2006", "2010", state == "NY")) |> 
+  select(year, state, county, response, data_value) |> 
+  ggplot(aes(x = response, y = data_value, color = response)) +
+  geom_boxplot() +
+  facet_grid(.~ year)
+```
+
+This two-panel boxplot shows that for 2006 and 2010, the distribution of data_value for responses ("Poor" to Excellent") among locations in NY state are mostly "Good" and "Very good". In 2010, the responses for "Good" and "Very good" increased from 2006, and have more outliers. 
+
+## Problem 3
+
+### Read in data
+
+### Data cleaning
 
 
 
