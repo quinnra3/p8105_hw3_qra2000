@@ -172,7 +172,12 @@ brfss_smart2010_clean |>
   select(year, state, county, response, data_value) |> 
   ggplot(aes(x = response, y = data_value, color = response)) +
   geom_boxplot() +
-  facet_grid(.~ year)
+  facet_grid(.~ year) +
+  labs(
+    title = "Distribution of data_value in NY State",
+    x = "Response",
+    y = "data_value") +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
 ## Problem 3
@@ -277,7 +282,12 @@ nhanes_data |>
   ggplot(aes(x = time, y = activity, color = sex)) +
   geom_point(alpha = .5) +
   geom_smooth(se = FALSE) +
-  facet_grid(.~ education)
+  facet_grid(.~ education) +
+  labs(
+    title = "24-hour activity time course for each education level across sex",
+    x = "Time (minutes)",
+    y = "Activity") +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
 This plot shows the 24-hour activity time courses for male and female participants of the NHANES study across education level. The plot shows that male participants with education more than high school have the highest 24-total activity, followed by female participants with education more than high school. From this we can conclude the 
