@@ -27,6 +27,8 @@ options(
 
 scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
+
+options(knitr.table.format = 'markdown')
 ```
 
 ## Problem 1
@@ -103,59 +105,49 @@ instacart |>
 
 ```{r}
 data("brfss_smart2010")
-
-brfss_smart2010 = 
-  brfss_smart2010 |> 
-  as_tibble()
 ```
 
 ### Data cleaning
 
 ```{r}
-brfss_smart2010_clean = brfss_smart2010 |> 
+brfss_smart2010_clean =
+  brfss_smart2010 |> 
   janitor::clean_names() |>
   filter(topic == "Overall Health",
          response %in% c("Excellent", "Very good", "Good", "Fair", "Poor")) |> 
   mutate(response = factor(response, levels = c("Poor", "Fair", "Good", "Very good", "Excellent"), ordered = TRUE)) |>
   rename("state" = "locationabbr","county" = "locationdesc")
-
-view(brfss_smart2010_clean)
 ```
 
 ### Data discussion
 
-In 2002, 6 states were observed at 7 or more locations: PA, NJ, NC, MA, FL, and CT.
-
 ```{r}
-states_2002 =
-  brfss_smart2010_clean |> 
+brfss_smart2010_clean |> 
   filter(year == "2002") |> 
   group_by(year, state) |> 
-  summarize(nlocation = n_distinct(geo_location)) |> 
-  filter(nlocation >= 7) |> 
+  summarize(nloc = n_distinct(geo_location)) |> 
+  filter(nloc >= 7) |>
+  arrange(desc(nloc)) |> 
   knitr::kable()
 
-states_2002
-```
-
-In 2010, 14 states were observed at 7 or more locations: CA, CO, FL, MA, MD, NC, NE, NJ, NY, OH, PA, SC, TX, WA. 
-
-```{r}
-states_2010 = 
-  brfss_smart2010_clean |> 
+brfss_smart2010_clean |> 
   filter(year == "2010") |> 
   group_by(year, state) |> 
   summarize(nloc = n_distinct(geo_location)) |> 
   filter(nloc >= 7) |> 
+  arrange(desc(nloc)) |> 
   knitr::kable()
-
-states_2010
 ```
+
+In 2002, there were 6 states were observed at 7 or more locations: PA, MA, NJ, CT, FL, NC. 
+
+In 2010, 14 states were observed at 7 or more locations: FL, NJ, TX, CA, MD, NC, NE, WA, MA, NY, OH, CO, PA, SC. 
 
 Construct a dataset that is limited to `Excellent` responses, and contains, `year`, `state`, and a variable that averages the `data_value` across locations within a state. Make a "spaghetti” plot of this average value over time within a state (that is, make a plot showing a line for each state across years – the geom_line geometry and group aesthetic will help).
 
 ```{r}
-bfrss_smart2010_excellent = brfss_smart2010_clean |> 
+bfrss_smart2010_excellent =
+  brfss_smart2010_clean |> 
   filter(response == "Excellent") |> 
   select(year, state, county, data_value) |> 
   group_by(year, state) |> 
@@ -167,9 +159,8 @@ bfrss_smart2010_excellent |>
   labs(
     title = "Average 'Excellent' Responses over Time per State",
     x = "Time (years)",
-    y = "Mean (percentage)",
-    color = "States", 
-    caption = "Data from bfrss_smart_2010 dataset") +
+    y = "Average data_value",
+    color = "States") +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
@@ -177,7 +168,6 @@ Make a two-panel plot showing, for the years 2006, and 2010, distribution of dat
 
 ```{r}
 brfss_smart2010_clean |> 
-   mutate(response = forcats::fct_relevel(response, c("Poor", "Fair", "Excellent", "Good", "Very good"))) |> 
   filter(year %in% c("2006", "2010", state == "NY")) |> 
   select(year, state, county, response, data_value) |> 
   ggplot(aes(x = response, y = data_value, color = response)) +
@@ -185,13 +175,116 @@ brfss_smart2010_clean |>
   facet_grid(.~ year)
 ```
 
-This two-panel boxplot shows that for 2006 and 2010, the distribution of data_value for responses ("Poor" to Excellent") among locations in NY state are mostly "Good" and "Very good". In 2010, the responses for "Good" and "Very good" increased from 2006, and have more outliers. 
-
 ## Problem 3
 
-### Read in data
+### Read in, clean, tidy, and merge datasets
 
-### Data cleaning
+Read in and clean NHANES demographic data
+
+```{r}
+nhanes_covar = 
+  read_csv("./data/nhanes_covar.csv", skip = 4)
+
+nhanes_covar_clean =
+  nhanes_covar |> 
+  janitor::clean_names() |> 
+  mutate(
+    sex = recode(sex, `1` = "male", `2` = "female"),
+    education = recode(education, `1` = "less than high school", `2` = "high school equivalent", `3` = "more than high school")) |> 
+  drop_na(bmi, education) |> 
+  filter(age > 21)
+```
+
+Read and clean NHANES accelerometer data.
+
+```{r}
+nhanes_accel = 
+  read_csv("./data/nhanes_accel.csv")
+
+nhanes_accel_clean = nhanes_accel |> 
+  janitor::clean_names() |> 
+  drop_na()
+```
+
+Combine both datasets.
+
+```{r}
+nhanes_data = merge(nhanes_covar_clean, nhanes_accel_clean)
+```
+
+### Data table and visualization, preliminary exploration
+
+Produce reader friendly table for the number of men and women in each education category, and create a visualization of the age distributions for men and women in each education category.
+
+```{r}
+nhanes_gender_education =
+  nhanes_data |> 
+  group_by(sex, education) |> 
+  summarize(count = n()) |> 
+  pivot_wider(
+    names_from = "sex",
+    values_from = "count") |> 
+  knitr::kable()
+
+ggplot(nhanes_data, aes(x = education, y = age, fill = sex)) + 
+  geom_boxplot() +
+  facet_grid(. ~ sex) +
+  labs(
+    title = "Age Distributions for Men and Women by Education",
+    x = "Sex",
+    y = "Age",
+    color = "Sex") +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle = 60, hjust = 1))
+```
+
+The plot above shows the age distribution by education category among the 250 total male and female participants in the NHANES study. The plot above shows the majority of the younger participants in the study across both male and females have an education more than high school, although slightly more female participants have education beyond high school.
+
+### Data analyses
+
+#### Total activity over the day
+
+Using tidied dataset, aggregate across minutes to create "total activity" variable for each participant. Plot activities (y-axis) against age (x-axis). 
+
+```{r}
+nhanes_data |> 
+  group_by(education, sex) |> 
+  mutate(total_activity = rowSums(across(min1:min1440))) |> 
+  ggplot(aes(x = age, y = total_activity, color = education)) +
+  geom_point(alpha = .5) +
+  facet_wrap(~education) +
+  geom_smooth()+
+  labs(
+    title = "Total Activities against Age",
+    x = "Age",
+    y = "Activity") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+The plot above shows the total activities compared to participant age from data in the NHANES study, separated by education level. This plot shows that total activity decreases as age increases across all three education levels. Participants wtih education less than high school have the highest total activities at the youngest age (20), then sharply decreases to the lowest total activities at the highest age (80). For participants with an education of high school equivalent, the highest total activity is among participants around 40 years old. For participants with an education beyond high school, the total activity plateaus for ages 20-40, then declines after age 60. 
+
+#### Inspection activity over the course of the day
+
+Make a three-panel plot that shows the 24-hour activity time courses for each education level and use color to indicate sex. 
+
+```{r}
+nhanes_data |> 
+  pivot_longer(
+    min1:min1440,
+    names_to = "time", 
+    values_to = "activity") |> 
+  ggplot(aes(x = time, y = activity, color = sex)) +
+  geom_point(alpha = .5) +
+  geom_smooth(se = FALSE) +
+  facet_grid(.~ education)
+```
+
+This plot shows the 24-hour activity time courses for male and female participants of the NHANES study across education level. The plot shows that male participants with education more than high school have the highest 24-total activity, followed by female participants with education more than high school. From this we can conclude the 
+
+Describe in words any patterns or conclusions you can make based on this graph; including smooth trends may help identify differences. 
+
+
 
 
 
