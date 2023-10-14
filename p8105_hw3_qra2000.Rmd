@@ -222,16 +222,18 @@ nhanes_data = merge(nhanes_covar_clean, nhanes_accel_clean)
 Produce reader friendly table for the number of men and women in each education category, and create a visualization of the age distributions for men and women in each education category.
 
 ```{r}
-nhanes_gender_education =
-  nhanes_data |> 
+nhanes_data |> 
   group_by(sex, education) |> 
   summarize(count = n()) |> 
   pivot_wider(
     names_from = "sex",
     values_from = "count") |> 
   knitr::kable()
+```
 
-ggplot(nhanes_data, aes(x = education, y = age, fill = sex)) + 
+```{r}
+nhanes_data |> 
+  ggplot(aes(x = education, y = age, fill = sex)) + 
   geom_boxplot() +
   facet_grid(. ~ sex) +
   labs(
@@ -243,6 +245,7 @@ ggplot(nhanes_data, aes(x = education, y = age, fill = sex)) +
     plot.title = element_text(hjust = 0.5),
     axis.text.x = element_text(angle = 60, hjust = 1))
 ```
+
 
 The plot above shows the age distribution by education category among the 250 total male and female participants in the NHANES study. The plot above shows the majority of the younger participants in the study across both male and females have an education more than high school, although slightly more female participants have education beyond high school.
 
